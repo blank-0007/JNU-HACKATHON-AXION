@@ -1,0 +1,40 @@
+# Decentralized Runtime Integrity Engine
+#   chain     local blockchain (Hardhat) running IntegrityLedger
+#   agent     the "remote machine": measures binary/config/memory, signs, anchors
+#   verifier  deploys the ledger, enrolls the agent key, serves the dashboard
+services:
+  chain:
+    build: { context: ., dockerfile: chain/Dockerfile }
+    ports: ["8545:8545"]
+    volumes: [shared:/shared]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',method:'eth_chainId',params:[],id:1})}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      retries: 30
+
+  agent:
+    build: ./agent
+    depends_on: { chain: { condition: service_healthy } }
+    environment:
+      RPC_URL: http://chain:8545
+      MEASURE_INTERVAL: "2"
+    volumes:
+      - ./target_system:/target   # the protected service's files (edit them live from your IDE)
+      - shared:/shared            # public info: deployment, agent address, demo requests
+      - agent-secrets:/secrets    # the agent's private key: mounted ONLY here
+
+  verifier:
+    build: ./verifier
+    depends_on:
+      chain: { condition: service_healthy }
+      agent: { condition: service_started }
+    environment:
+      RPC_URL: http://chain:8545
+    ports: ["8502:8501"]
+    volumes:
+      - ./target_system:/target
+      - shared:/shared
+
+volumes:
+  shared:
+  agent-secrets:

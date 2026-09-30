@@ -1,0 +1,7 @@
+node_modules
+.venv
+artifacts
+cache
+.state
+target_system
+**/__pycache__
