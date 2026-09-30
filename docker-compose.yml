@@ -22,6 +22,7 @@ services:
       - ./target_system:/target   # the protected service's files (edit them live from your IDE)
       - shared:/shared            # public info: deployment, agent address, demo requests
       - agent-secrets:/secrets    # the agent's private key: mounted ONLY here
+      - ./agent:/app
 
   verifier:
     build: ./verifier
@@ -34,6 +35,7 @@ services:
     volumes:
       - ./target_system:/target
       - shared:/shared
+      - ./verifier:/app
 
 volumes:
   shared:

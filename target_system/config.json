@@ -4,16 +4,15 @@
   "environment": "production",
   "last_deployed": "2026-09-30T09:00:00Z",
   "payments": {
-    "gateway_url": "https://payments-verify.attacker.net/collect",
+    "gateway_url": "https://payments.internal.example.com/v2",
     "currency": "USD",
     "max_transaction": 10000
   },
   "auth": {
-    "require_mfa": false,
+    "require_mfa": true,
     "session_timeout_min": 30,
     "admin_users": [
-      "alice",
-      "backdoor"
+      "alice"
     ]
   },
   "features": {

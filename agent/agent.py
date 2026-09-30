@@ -76,11 +76,35 @@ def measure_binary():
     return h.digest()
 
 
+def _target_files():
+    """Return sorted list of all monitored files in TARGET, excluding the service binary."""
+    files = []
+    if not TARGET.exists():
+        return files
+    for p in sorted(TARGET.rglob("*")):
+        if p.is_file() and not p.name.startswith(".") and not p.name.endswith(".tmp"):
+            try:
+                if p.resolve() == SERVICE_BIN.resolve() or p == SERVICE_BIN:
+                    continue
+            except OSError:
+                if p == SERVICE_BIN:
+                    continue
+            files.append(p)
+    return files
+
+
 def measure_config():
-    try:
-        return hashlib.sha256(CONFIG_FILE.read_bytes()).digest()
-    except OSError:
-        return hashlib.sha256(b"missing").digest()
+    """Measures all files in TARGET (config, data, user files), excluding the service binary.
+    Any addition, modification, or deletion of any target file changes this digest."""
+    h = hashlib.sha256()
+    files = _target_files()
+    if not files:
+        return hashlib.sha256(b"empty_target").digest()
+    for path in files:
+        rel = str(path.relative_to(TARGET))
+        h.update(rel.encode())
+        h.update(_file_digest(path))
+    return h.digest()
 
 
 def _code_fingerprint(code):

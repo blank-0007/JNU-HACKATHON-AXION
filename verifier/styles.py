@@ -43,8 +43,8 @@ section[data-testid="stSidebar"] { background: #161a20; border-right: 1px solid 
 [class*="st-key-btn_"] button:active { transform: scale(.98); }
 [class*="st-key-btn_"] button:focus:not(:active) { box-shadow: none; }
 
-.st-key-btn_hack button, .st-key-btn_binary button, .st-key-btn_memory button { border: 1px solid rgba(248,113,113,.55); color: #f87171; }
-.st-key-btn_hack button:hover, .st-key-btn_binary button:hover, .st-key-btn_memory button:hover { border-color: #f87171; background: rgba(248,113,113,.08); color: #fca5a5; }
+.st-key-btn_hack button, .st-key-btn_binary button, .st-key-btn_memory button, .st-key-btn_inject_data button { border: 1px solid rgba(248,113,113,.55); color: #f87171; }
+.st-key-btn_hack button:hover, .st-key-btn_binary button:hover, .st-key-btn_memory button:hover, .st-key-btn_inject_data button:hover { border-color: #f87171; background: rgba(248,113,113,.08); color: #fca5a5; }
 .st-key-btn_approve button { border: 1px solid rgba(96,165,250,.55); color: var(--blue); }
 .st-key-btn_approve button:hover { border-color: var(--blue); background: rgba(96,165,250,.08); color: #93c5fd; }
 .st-key-btn_reset button { border: 1px solid var(--line); color: var(--text); }
@@ -136,6 +136,15 @@ table.trail { width: 100%; border-collapse: collapse; font-size: .98rem; }
   .comp-hash { display: none; }
   .kv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ---- data entry & target file management */
+.entry-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 1.2rem 1.35rem; margin-top: 1rem; margin-bottom: 1rem; }
+.entry-title { font-size: 1.15rem; font-weight: 600; color: var(--text); display: flex; align-items: center; justify-content: space-between; }
+.entry-desc { color: var(--muted); font-size: .92rem; margin-top: .3rem; margin-bottom: 1rem; }
+.file-list { margin-top: .9rem; border-top: 1px solid var(--line); padding-top: .8rem; }
+.file-row { display: flex; justify-content: space-between; align-items: center; padding: .35rem 0; font-family: var(--mono); font-size: .88rem; color: var(--text); }
+.file-row .f-name { color: var(--blue); }
+.file-row .f-meta { color: var(--muted); font-size: .82rem; }
 
 @media (max-width: 640px) {
   [data-testid="stMainBlockContainer"] { padding: 1.25rem 1rem 2rem; }

@@ -91,7 +91,7 @@ def verify(ledger):
         s.state = "tamper"
         s.event = next((e for e in reversed(trail) if e.kind == "tamper"), None)
         if last.mismatch & CONFIG_BIT:
-            s.changes = target.config_diff()
+            s.changes = target.target_diff()
     else:
         updates = [e for e in trail if e.kind == "updated"]
         latest = updates[-1] if updates else None
@@ -99,11 +99,11 @@ def verify(ledger):
             s.state, s.event = "authorized", latest
             s.changes = st.session_state.get("release_diff", [])
 
-    # Keep a copy of the config file whose bytes hash to the on-chain reference, for Reset.
+    # Keep snapshot of trusted target files for Reset and diffing.
     try:
-        if "0x" + hashlib.sha256(target.CONFIG_PATH.read_bytes()).hexdigest() == refs[1]:
+        if not last.mismatch and s.state == "verified":
             target.save_snapshot()
-    except OSError:
+    except Exception:
         pass
     return s
 
@@ -182,7 +182,7 @@ def html_problem(problem):
 
 _COMPONENT_INFO = {
     "binary": ("Binary", "bin/checkout-service + agent code"),
-    "config": ("Config", "target_system/config.json"),
+    "config": ("Target Files", "target_system/ files & config"),
     "memory": ("Memory", "security policy + code objects in RAM"),
 }
 
@@ -275,6 +275,7 @@ with st.sidebar:
     st.html('<div class="side-title">Demo panel</div><div class="side-sub">Attack the remote agent live</div>'
             '<div class="side-label">Attacks</div>')
     hack_config = st.button("Tamper config", icon=":material/edit_document:", key="btn_hack", width="stretch")
+    hack_data = st.button("Inject data file", icon=":material/note_add:", key="btn_inject_data", width="stretch")
     hack_binary = st.button("Replace binary", icon=":material/deployed_code:", key="btn_binary", width="stretch")
     hack_memory = st.button("Patch memory", icon=":material/memory:", key="btn_memory", width="stretch")
     st.html('<div class="side-label">Operator</div>')
@@ -285,6 +286,9 @@ try:
     if hack_config:
         target.apply_config_hack()
         st.toast("Attacker rewrote config.json", icon=":material/edit_document:")
+    if hack_data:
+        target.write_user_data("custom_payload.txt", "INJECTED_UNAUTHORIZED_PAYLOAD: 0x8a9b21f\n")
+        st.toast("Injected custom_payload.txt into target_system", icon=":material/note_add:")
     if hack_binary:
         target.replace_binary()
         st.toast("Attacker appended a payload to the service binary", icon=":material/deployed_code:")
@@ -304,11 +308,11 @@ try:
             else:
                 st.session_state["release_diff"] = []
                 version = target.apply_dev_update()
-                st.session_state["release_diff"] = target.config_diff()
+                st.session_state["release_diff"] = target.target_diff()
                 st.toast(f"Developer approved config on-chain, release v{version} applied", icon=":material/signature:")
     if reset:
         target.restore_all()
-        st.toast("Restored config, binary and memory to the trusted state", icon=":material/refresh:")
+        st.toast("Restored config, target files, binary and memory to the trusted state", icon=":material/refresh:")
 except OSError as exc:
     st.toast(f"Couldn't touch the target files: {exc}", icon=":material/error:")
 
@@ -342,3 +346,90 @@ def dashboard():
 
 
 dashboard()
+
+
+# ------------------------------------------------------------- user data entry section
+def render_data_entry_section():
+    st.html("""
+    <div class="entry-card">
+      <div class="entry-title">
+        <span>Target System Data Entry & Live File Injection</span>
+        <span class="mono" style="color:var(--blue);font-size:.85rem;">target_system/</span>
+      </div>
+      <div class="entry-desc">
+        Enter any custom data, payload, or file to write into <code style="color:var(--blue)">target_system/</code>. Any addition, modification, or removal is measured by the agent and flagged as an on-chain tamper alert within 2 seconds.
+      </div>
+    </div>
+    """)
+
+    with st.container():
+        c1, c2 = st.columns([1.3, 2.7])
+        with c1:
+            file_preset = st.selectbox(
+                "Target File",
+                ["user_data.txt", "payload.json", "notes.txt", "config.json", "Custom path..."],
+                key="sel_file_preset"
+            )
+            if file_preset == "Custom path...":
+                target_filename = st.text_input("Relative File Path", value="data/sample.txt", key="inp_custom_file")
+            else:
+                target_filename = file_preset
+
+            action_type = st.radio("Operation", ["Write / Inject", "Delete File"], horizontal=True, key="rad_file_action")
+
+        with c2:
+            default_content = (
+                '{\n  "injected_data": "simulated_payload",\n  "status": "unauthorized"\n}'
+                if target_filename.endswith(".json")
+                else "CONFIDENTIAL_DATA=987654321\nBACKDOOR_KEY=0x9f7a8b12\n"
+            )
+            user_content = st.text_area(
+                f"Data content for target_system/{target_filename}",
+                value=default_content,
+                height=115,
+                disabled=(action_type == "Delete File"),
+                key="txt_user_data"
+            )
+
+        btn_c1, btn_c2, _ = st.columns([1.6, 1.6, 3])
+        with btn_c1:
+            if action_type == "Write / Inject":
+                if st.button("Apply to target_system", type="primary", use_container_width=True, key="btn_apply_user_data"):
+                    try:
+                        saved = target.write_user_data(target_filename, user_content)
+                        st.toast(f"Wrote target_system/{saved}! Agent will flag this on-chain within 2s.", icon=":material/save:")
+                        st.rerun()
+                    except Exception as err:
+                        st.toast(f"Error: {err}", icon=":material/error:")
+            else:
+                if st.button("Delete Target File", type="primary", use_container_width=True, key="btn_delete_user_data"):
+                    try:
+                        deleted = target.remove_target_file(target_filename)
+                        if deleted:
+                            st.toast(f"Deleted target_system/{target_filename}! Agent will detect missing file.", icon=":material/delete:")
+                        else:
+                            st.toast(f"File {target_filename} not found or protected.", icon=":material/warning:")
+                        st.rerun()
+                    except Exception as err:
+                        st.toast(f"Error: {err}", icon=":material/error:")
+        with btn_c2:
+            if st.button("Refresh File List", use_container_width=True, key="btn_refresh_target_files"):
+                st.rerun()
+
+        # Display list of monitored files in target_system/
+        current_files = target.list_target_files()
+        if current_files:
+            file_rows = "".join(
+                f'<div class="file-row">'
+                f'<span class="f-name">target_system/{f["path"]}</span> '
+                f'<span class="f-meta">{f["size"]} · sha256:{f["hash"]} · {f["mtime"]} UTC</span>'
+                f'</div>'
+                for f in current_files
+            )
+            st.html(f'<div class="file-list">'
+                    f'<div style="color:var(--muted);font-size:.8rem;font-weight:600;margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.06em;">'
+                    f'Files Monitored in target_system ({len(current_files)})'
+                    f'</div>{file_rows}</div>')
+
+
+render_data_entry_section()
